@@ -6,10 +6,10 @@ Real-world data analysis projects using **live data** from public APIs and open 
 
 | # | Project | Data Source | Status |
 |---|---------|-------------|--------|
-| 1 | AI/ML Open Source Ecosystem | GitHub API, HuggingFace API | In Progress |
-| 2 | Global CO2 Emissions & Climate | Our World in Data | Planned |
-| 3 | Cryptocurrency Market Analysis | CoinGecko API | Planned |
+| 1 | [AI/ML Open Source Ecosystem](01_ai_ecosystem_analysis/) | GitHub API, HuggingFace API | Complete |
+| 2 | [Global CO2 & Climate](02_global_co2_analysis/) | Our World in Data | Complete |
+| 3 | Cryptocurrency Market Analysis | CoinGecko API | In Progress |
 
 ## Tech Stack
-- Python, pandas, matplotlib, seaborn, scipy, scikit-learn
-- Data sourced from live APIs (GitHub, HuggingFace, CoinGecko, OWID)
+- Python, pandas, matplotlib, seaborn, scipy
+- Live data from GitHub, HuggingFace, CoinGecko, OWID APIs
