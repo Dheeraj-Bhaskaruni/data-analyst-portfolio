@@ -3,115 +3,221 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from scipy import stats
 from datetime import datetime
 
-st.set_page_config(page_title="Dheeraj Bhaskaruni | Data Analyst Portfolio", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Dheeraj Bhaskaruni | Data Analyst", layout="wide", page_icon="📊")
 
-# --- sidebar nav ---
-st.sidebar.title("Portfolio")
-page = st.sidebar.radio("", [
-    "Home",
+# ── data loading with caching ──
+@st.cache_data
+def load_orders():
+    df = pd.read_csv("04_ecommerce_executive_dashboard/data/orders.csv", parse_dates=["order_date"])
+    df["revenue"] = df["quantity"] * df["unit_price"] * (1 - df["discount_pct"] / 100)
+    return df
+
+@st.cache_data
+def load_customers():
+    return pd.read_csv("04_ecommerce_executive_dashboard/data/customers.csv")
+
+@st.cache_data
+def load_ab_test():
+    df = pd.read_csv("05_ab_test_checkout_optimization/data/ab_test_checkout.csv")
+    return df[df["session_duration_sec"] >= 5]
+
+@st.cache_data
+def load_repos():
+    return pd.read_csv("01_ai_ecosystem_analysis/data/github_ai_repos.csv")
+
+@st.cache_data
+def load_models():
+    return pd.read_csv("01_ai_ecosystem_analysis/data/huggingface_models.csv")
+
+@st.cache_data
+def load_co2():
+    df = pd.read_csv("02_global_co2_analysis/data/owid_co2_data.csv")
+    return df[df["iso_code"].notna() & (df["iso_code"] != "")]
+
+@st.cache_data
+def load_crypto():
+    return pd.read_csv("03_crypto_market_analysis/data/crypto_market.csv")
+
+
+# ── sidebar ──
+st.sidebar.title("Dheeraj Bhaskaruni")
+st.sidebar.caption("Data Analyst Portfolio")
+st.sidebar.markdown("---")
+
+page = st.sidebar.radio("Navigate", [
+    "Overview",
     "E-Commerce Dashboard",
     "A/B Test Analysis",
-    "AI Ecosystem",
+    "AI & ML Ecosystem",
     "Global CO2 Emissions",
     "Crypto Market",
-])
+], label_visibility="collapsed")
 
-# ============================================================
-# HOME
-# ============================================================
-if page == "Home":
-    st.title("Dheeraj Bhaskaruni")
-    st.subheader("Data Analyst")
-    st.markdown("---")
+st.sidebar.markdown("---")
+st.sidebar.markdown("[GitHub](https://github.com/Dheeraj-Bhaskaruni) · [LinkedIn](https://linkedin.com/in/dheeraj-bhaskaruni)")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Projects", "5")
-    col2.metric("Datasets Analyzed", "50K+ rows")
-    col3.metric("Skills", "Python · SQL · Statistics")
 
+# ── color palette ──
+PALETTE = {
+    "primary": "#1a1a2e",
+    "blue": "#0f3460",
+    "accent": "#e94560",
+    "green": "#27AE60",
+    "orange": "#F39C12",
+    "gray": "#95A5A6",
+}
+
+
+# ════════════════════════════════════════════════════════════════
+# OVERVIEW
+# ════════════════════════════════════════════════════════════════
+if page == "Overview":
+    st.title("Hey, I'm Dheeraj.")
     st.markdown("""
-    ### About
-    Data analyst with hands-on experience in business intelligence, experimentation,
-    and data storytelling. This portfolio contains end-to-end projects using real-world
-    data — from executive dashboards to A/B test analysis.
+    I'm a data analyst who likes digging into messy data and turning it into something
+    useful. This portfolio is a collection of projects I've worked on — some business-focused,
+    some exploratory. Each one uses real data, not toy datasets.
 
-    ### Projects
-
-    **E-Commerce Executive Dashboard** — KPI tracking, RFM segmentation, cohort retention, SQL queries
-    **A/B Test Checkout Optimization** — Hypothesis testing, power analysis, funnel analysis, ship recommendation
-    **AI Ecosystem Analysis** — GitHub + HuggingFace data, framework trends, model landscape
-    **Global CO2 Emissions** — OWID data, per-capita trends, regional comparisons
-    **Crypto Market Analysis** — CoinGecko data, market dominance, volatility tiers
-
-    ### Tools & Stack
-    Python · Pandas · NumPy · SQL · Plotly · Matplotlib · Seaborn · Scipy · Scikit-learn · Jupyter · Streamlit
+    Pick a project from the sidebar to explore it interactively.
     """)
 
-# ============================================================
-# E-COMMERCE EXECUTIVE DASHBOARD
-# ============================================================
-elif page == "E-Commerce Dashboard":
-    st.title("E-Commerce Executive Dashboard")
-    st.caption("KPI tracking, segmentation, and cohort analysis on 6,800+ orders")
-
-    orders = pd.read_csv("04_ecommerce_executive_dashboard/data/orders.csv", parse_dates=["order_date"])
-    customers = pd.read_csv("04_ecommerce_executive_dashboard/data/customers.csv")
-
-    orders["revenue"] = orders["quantity"] * orders["unit_price"] * (1 - orders["discount_pct"] / 100)
-    active = orders[orders["order_status"] != "Cancelled"].copy()
-
-    # --- KPI row ---
-    total_rev = active["revenue"].sum()
-    total_orders = active["order_id"].nunique()
-    aov = total_rev / total_orders
-    unique_customers = active["customer_id"].nunique()
-
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Total Revenue", f"${total_rev:,.0f}")
-    k2.metric("Orders", f"{total_orders:,}")
-    k3.metric("Avg Order Value", f"${aov:,.2f}")
-    k4.metric("Unique Customers", f"{unique_customers:,}")
-
     st.markdown("---")
 
-    # --- Revenue over time ---
-    monthly = active.set_index("order_date").resample("M")["revenue"].sum().reset_index()
-    monthly.columns = ["month", "revenue"]
-
-    fig_rev = px.area(monthly, x="month", y="revenue",
-                      title="Monthly Revenue Trend",
-                      labels={"revenue": "Revenue ($)", "month": ""},
-                      color_discrete_sequence=["#2C3E50"])
-    fig_rev.update_layout(hovermode="x unified")
-    st.plotly_chart(fig_rev, use_container_width=True)
-
-    # --- Two columns: category + payment ---
     c1, c2 = st.columns(2)
 
     with c1:
-        cat_rev = active.groupby("category")["revenue"].sum().sort_values(ascending=True)
+        st.markdown("#### Business Projects")
+        st.markdown("""
+        **E-Commerce Executive Dashboard**
+        Built a KPI dashboard on ~7K orders — revenue trends, RFM customer segmentation,
+        cohort retention heatmaps, and SQL queries I'd actually use in production.
+        The kind of thing you'd present in a weekly business review.
+
+        **A/B Test: Checkout Optimization**
+        Ran a full experiment analysis on 15K users testing a new checkout flow.
+        SRM validation, z-test, power analysis, segment breakdowns, revenue impact
+        estimation, and a ship/no-ship recommendation with rollout plan.
+        """)
+
+    with c2:
+        st.markdown("#### Exploratory Projects")
+        st.markdown("""
+        **AI & ML Ecosystem**
+        Pulled data from GitHub and HuggingFace APIs to map out the open-source
+        ML landscape — which frameworks dominate, what tasks models are being
+        built for, and how the ecosystem has evolved.
+
+        **Global CO2 Emissions**
+        Analyzed OWID climate data across countries and decades. Per-capita trends,
+        emission sources, regional comparisons. Interactive country selector.
+
+        **Crypto Market**
+        CoinGecko data on 250 coins — market dominance, price momentum,
+        distance from ATH. More of a data exploration than a trading strategy.
+        """)
+
+    st.markdown("---")
+    st.markdown("##### What I work with")
+    st.markdown("Python · SQL · Pandas · Plotly · Scipy · Scikit-learn · Streamlit · Jupyter · Git")
+
+
+# ════════════════════════════════════════════════════════════════
+# E-COMMERCE DASHBOARD
+# ════════════════════════════════════════════════════════════════
+elif page == "E-Commerce Dashboard":
+    st.title("E-Commerce Executive Dashboard")
+
+    orders = load_orders()
+    active = orders[orders["order_status"] != "Cancelled"].copy()
+
+    # ── date filter ──
+    min_date = active["order_date"].min().date()
+    max_date = active["order_date"].max().date()
+
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        start_date = st.date_input("From", min_date, min_value=min_date, max_value=max_date)
+    with col_f2:
+        end_date = st.date_input("To", max_date, min_value=min_date, max_value=max_date)
+
+    mask = (active["order_date"].dt.date >= start_date) & (active["order_date"].dt.date <= end_date)
+    filtered = active[mask]
+
+    # ── KPIs with MoM comparison ──
+    st.markdown("---")
+
+    current_month = filtered["order_date"].dt.to_period("M").max()
+    prev_month = current_month - 1
+
+    curr = filtered[filtered["order_date"].dt.to_period("M") == current_month]
+    prev = filtered[filtered["order_date"].dt.to_period("M") == prev_month]
+
+    def mom_delta(curr_val, prev_val):
+        if prev_val == 0:
+            return None
+        return f"{((curr_val - prev_val) / prev_val) * 100:+.1f}%"
+
+    curr_rev = curr["revenue"].sum()
+    prev_rev = prev["revenue"].sum()
+    curr_orders = curr["order_id"].nunique()
+    prev_orders = prev["order_id"].nunique()
+    curr_aov = curr_rev / curr_orders if curr_orders > 0 else 0
+    prev_aov = prev_rev / prev_orders if prev_orders > 0 else 0
+    curr_cust = curr["customer_id"].nunique()
+    prev_cust = prev["customer_id"].nunique()
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Revenue", f"${curr_rev:,.0f}", mom_delta(curr_rev, prev_rev))
+    k2.metric("Orders", f"{curr_orders:,}", mom_delta(curr_orders, prev_orders))
+    k3.metric("Avg Order Value", f"${curr_aov:,.2f}", mom_delta(curr_aov, prev_aov))
+    k4.metric("Customers", f"{curr_cust:,}", mom_delta(curr_cust, prev_cust))
+
+    st.caption(f"MoM comparison: {current_month} vs {prev_month}")
+
+    # ── Revenue trend ──
+    monthly = filtered.set_index("order_date").resample("M")["revenue"].sum().reset_index()
+    monthly.columns = ["month", "revenue"]
+
+    fig_rev = go.Figure()
+    fig_rev.add_trace(go.Scatter(
+        x=monthly["month"], y=monthly["revenue"],
+        mode="lines+markers", fill="tozeroy",
+        line=dict(color=PALETTE["blue"], width=2),
+        marker=dict(size=5),
+        hovertemplate="$%{y:,.0f}<extra></extra>"
+    ))
+    fig_rev.update_layout(title="Monthly Revenue", xaxis_title="", yaxis_title="Revenue ($)",
+                          hovermode="x unified", template="plotly_white", height=350)
+    st.plotly_chart(fig_rev, use_container_width=True)
+
+    # ── Category + Country side by side ──
+    c1, c2 = st.columns(2)
+
+    with c1:
+        cat_rev = filtered.groupby("category")["revenue"].sum().sort_values(ascending=True)
         fig_cat = px.bar(x=cat_rev.values, y=cat_rev.index, orientation="h",
-                         title="Revenue by Category",
                          labels={"x": "Revenue ($)", "y": ""},
-                         color_discrete_sequence=["#2980B9"])
+                         color_discrete_sequence=[PALETTE["blue"]])
+        fig_cat.update_layout(title="Revenue by Category", template="plotly_white", height=350)
         st.plotly_chart(fig_cat, use_container_width=True)
 
     with c2:
-        pay = active.groupby("payment_method")["order_id"].nunique().sort_values(ascending=False)
-        fig_pay = px.pie(values=pay.values, names=pay.index,
-                         title="Payment Methods",
-                         color_discrete_sequence=px.colors.qualitative.Set2)
-        fig_pay.update_traces(textinfo="label+percent")
-        st.plotly_chart(fig_pay, use_container_width=True)
+        geo = filtered.groupby("country")["revenue"].sum().sort_values(ascending=False).head(8)
+        fig_geo = px.bar(x=geo.index, y=geo.values,
+                         labels={"x": "", "y": "Revenue ($)"},
+                         color_discrete_sequence=[PALETTE["primary"]])
+        fig_geo.update_layout(title="Revenue by Country", template="plotly_white", height=350)
+        st.plotly_chart(fig_geo, use_container_width=True)
 
-    # --- RFM Segmentation ---
-    st.subheader("RFM Customer Segmentation")
-    ref_date = active["order_date"].max() + pd.Timedelta(days=1)
-    rfm = active.groupby("customer_id").agg(
+    # ── RFM Segmentation ──
+    st.markdown("### Customer Segmentation (RFM)")
+    st.caption("Recency × Frequency × Monetary scoring to identify high-value customers")
+
+    ref_date = filtered["order_date"].max() + pd.Timedelta(days=1)
+    rfm = filtered.groupby("customer_id").agg(
         recency=("order_date", lambda x: (ref_date - x.max()).days),
         frequency=("order_id", "nunique"),
         monetary=("revenue", "sum")
@@ -120,384 +226,406 @@ elif page == "E-Commerce Dashboard":
     rfm["r_score"] = pd.qcut(rfm["recency"], 4, labels=[4, 3, 2, 1]).astype(int)
     rfm["f_score"] = pd.qcut(rfm["frequency"].rank(method="first"), 4, labels=[1, 2, 3, 4]).astype(int)
     rfm["m_score"] = pd.qcut(rfm["monetary"], 4, labels=[1, 2, 3, 4]).astype(int)
-    rfm["rfm_score"] = rfm["r_score"] + rfm["f_score"] + rfm["m_score"]
+    rfm["rfm_total"] = rfm["r_score"] + rfm["f_score"] + rfm["m_score"]
 
-    def segment(row):
-        if row["rfm_score"] >= 10:
-            return "Champions"
-        elif row["rfm_score"] >= 8:
-            return "Loyal"
-        elif row["rfm_score"] >= 6:
-            return "Potential"
-        elif row["rfm_score"] >= 4:
-            return "At Risk"
-        else:
-            return "Lost"
+    def label_segment(score):
+        if score >= 10: return "Champions"
+        if score >= 8: return "Loyal"
+        if score >= 6: return "Potential"
+        if score >= 4: return "At Risk"
+        return "Lost"
 
-    rfm["segment"] = rfm.apply(segment, axis=1)
-    seg_counts = rfm["segment"].value_counts()
+    rfm["segment"] = rfm["rfm_total"].apply(label_segment)
 
-    fig_rfm = px.bar(x=seg_counts.index, y=seg_counts.values,
-                     title="Customer Segments",
-                     labels={"x": "Segment", "y": "Customers"},
-                     color=seg_counts.index,
-                     color_discrete_sequence=["#27AE60", "#2980B9", "#F39C12", "#E74C3C", "#95A5A6"])
-    st.plotly_chart(fig_rfm, use_container_width=True)
+    seg_order = ["Champions", "Loyal", "Potential", "At Risk", "Lost"]
+    seg_colors = {"Champions": "#27AE60", "Loyal": "#2980B9", "Potential": "#F39C12", "At Risk": "#E74C3C", "Lost": "#BDC3C7"}
 
-    # --- Cohort retention ---
-    st.subheader("Cohort Retention")
-    active["order_month"] = active["order_date"].dt.to_period("M")
-    first_purchase = active.groupby("customer_id")["order_month"].min().rename("cohort")
-    cohort_data = active.merge(first_purchase, on="customer_id")
+    r1, r2 = st.columns(2)
+    with r1:
+        seg_counts = rfm["segment"].value_counts().reindex(seg_order)
+        fig_seg = px.bar(x=seg_counts.index, y=seg_counts.values,
+                         color=seg_counts.index, color_discrete_map=seg_colors,
+                         labels={"x": "", "y": "Customers"})
+        fig_seg.update_layout(title="Segment Distribution", showlegend=False,
+                              template="plotly_white", height=350)
+        st.plotly_chart(fig_seg, use_container_width=True)
+
+    with r2:
+        seg_rev = rfm.groupby("segment")["monetary"].mean().reindex(seg_order)
+        fig_sr = px.bar(x=seg_rev.index, y=seg_rev.values,
+                        color=seg_rev.index, color_discrete_map=seg_colors,
+                        labels={"x": "", "y": "Avg Revenue ($)"})
+        fig_sr.update_layout(title="Avg Revenue per Segment", showlegend=False,
+                             template="plotly_white", height=350)
+        st.plotly_chart(fig_sr, use_container_width=True)
+
+    # ── Cohort Retention ──
+    st.markdown("### Cohort Retention")
+    st.caption("How well we retain customers over time, grouped by their first purchase month")
+
+    filtered_cohort = filtered.copy()
+    filtered_cohort["order_month"] = filtered_cohort["order_date"].dt.to_period("M")
+    first_purchase = filtered_cohort.groupby("customer_id")["order_month"].min().rename("cohort")
+    cohort_data = filtered_cohort.merge(first_purchase, on="customer_id")
     cohort_data["period"] = (cohort_data["order_month"] - cohort_data["cohort"]).apply(lambda x: x.n)
 
-    cohort_table = cohort_data.groupby(["cohort", "period"])["customer_id"].nunique().reset_index()
-    cohort_table = cohort_table.pivot(index="cohort", columns="period", values="customer_id")
-    cohort_sizes = cohort_table[0]
-    retention = cohort_table.div(cohort_sizes, axis=0) * 100
-
+    cohort_pivot = cohort_data.groupby(["cohort", "period"])["customer_id"].nunique().reset_index()
+    cohort_pivot = cohort_pivot.pivot(index="cohort", columns="period", values="customer_id")
+    cohort_sizes = cohort_pivot[0]
+    retention = cohort_pivot.div(cohort_sizes, axis=0) * 100
     retention.index = retention.index.astype(str)
-    fig_heat = px.imshow(retention.values[:8, :6],
-                         x=[f"Month {i}" for i in range(min(6, retention.shape[1]))],
-                         y=retention.index[:8].tolist(),
-                         color_continuous_scale="YlOrRd_r",
-                         title="Cohort Retention (%)",
-                         aspect="auto",
-                         text_auto=".0f")
+
+    n_cohorts = min(8, len(retention))
+    n_periods = min(6, retention.shape[1])
+
+    fig_heat = px.imshow(
+        retention.values[:n_cohorts, :n_periods],
+        x=[f"Month {i}" for i in range(n_periods)],
+        y=retention.index[:n_cohorts].tolist(),
+        color_continuous_scale="Blues",
+        aspect="auto", text_auto=".0f",
+        labels={"color": "Retention %"}
+    )
+    fig_heat.update_layout(title="", template="plotly_white", height=350)
     st.plotly_chart(fig_heat, use_container_width=True)
 
-    # --- Geographic ---
-    geo = active.groupby("country")["revenue"].sum().sort_values(ascending=False).head(10)
-    fig_geo = px.bar(x=geo.index, y=geo.values,
-                     title="Revenue by Country (Top 10)",
-                     labels={"x": "Country", "y": "Revenue ($)"},
-                     color_discrete_sequence=["#2C3E50"])
-    st.plotly_chart(fig_geo, use_container_width=True)
-
-    # --- SQL section ---
-    with st.expander("SQL Queries Used"):
+    # ── SQL section ──
+    with st.expander("Production SQL Queries"):
+        st.caption("Queries I'd run against a data warehouse for this kind of analysis")
         try:
-            sql_text = open("04_ecommerce_executive_dashboard/queries/business_queries.sql").read()
-            st.code(sql_text, language="sql")
+            st.code(open("04_ecommerce_executive_dashboard/queries/business_queries.sql").read(), language="sql")
         except FileNotFoundError:
             st.info("SQL file not found")
 
 
-# ============================================================
-# A/B TEST ANALYSIS
-# ============================================================
+# ════════════════════════════════════════════════════════════════
+# A/B TEST
+# ════════════════════════════════════════════════════════════════
 elif page == "A/B Test Analysis":
     st.title("A/B Test: Checkout Flow Optimization")
-    st.caption("Statistical analysis of a checkout redesign experiment (15K users)")
+    st.caption("Did the new checkout flow actually improve conversions? Let's find out.")
 
-    df = pd.read_csv("05_ab_test_checkout_optimization/data/ab_test_checkout.csv")
-    df = df[df["session_duration_sec"] >= 5]  # exclude bots
-
+    df = load_ab_test()
     control = df[df["variant"] == "control"]
     treatment = df[df["variant"] == "treatment"]
 
-    # --- Sample sizes ---
-    st.subheader("Experiment Overview")
-    e1, e2, e3 = st.columns(3)
-    e1.metric("Control Users", f"{len(control):,}")
-    e2.metric("Treatment Users", f"{len(treatment):,}")
-    e3.metric("Total Users", f"{len(df):,}")
+    # ── Experiment overview ──
+    e1, e2, e3, e4 = st.columns(4)
+    e1.metric("Control", f"{len(control):,}")
+    e2.metric("Treatment", f"{len(treatment):,}")
+    e3.metric("Duration", f"{df['timestamp'].nunique()} days" if 'timestamp' in df.columns else "14 days")
+    e4.metric("Bot-filtered", f"{15000 - len(df):,} users removed")
 
-    # --- SRM check ---
-    st.subheader("Sample Ratio Mismatch (SRM) Check")
+    st.markdown("---")
+
+    # ── SRM check ──
     expected = len(df) / 2
-    chi2_stat, srm_p = stats.chisquare([len(control), len(treatment)], [expected, expected])
-    srm_pass = srm_p > 0.01
+    _, srm_p = stats.chisquare([len(control), len(treatment)], [expected, expected])
 
-    if srm_pass:
-        st.success(f"SRM check passed (p={srm_p:.4f}). Traffic split is balanced.")
+    if srm_p > 0.01:
+        st.success(f"**SRM check passed** — traffic split looks balanced (p={srm_p:.3f}). No instrumentation issues.")
     else:
-        st.error(f"SRM detected (p={srm_p:.4f}). Traffic split is imbalanced.")
+        st.error(f"**SRM detected** (p={srm_p:.4f}) — the traffic split is off. Investigate before trusting results.")
 
-    # --- Funnel comparison ---
-    st.subheader("Conversion Funnel")
+    # ── Funnel ──
+    st.markdown("### Conversion Funnel")
 
-    funnel_stages = ["added_to_cart", "started_checkout", "completed_purchase"]
-    funnel_data = []
-    for stage in funnel_stages:
+    stages = ["added_to_cart", "started_checkout", "completed_purchase"]
+    stage_labels = ["Add to Cart", "Start Checkout", "Purchase"]
+    funnel_rows = []
+    for stage, label in zip(stages, stage_labels):
         for variant in ["control", "treatment"]:
-            subset = df[df["variant"] == variant]
-            rate = subset[stage].mean() * 100
-            funnel_data.append({"stage": stage.replace("_", " ").title(), "variant": variant, "rate": rate})
+            sub = df[df["variant"] == variant]
+            funnel_rows.append({"Stage": label, "Variant": variant.title(), "Rate": sub[stage].mean() * 100})
 
-    funnel_df = pd.DataFrame(funnel_data)
-    fig_funnel = px.bar(funnel_df, x="stage", y="rate", color="variant",
-                        barmode="group", title="Funnel Conversion Rates (%)",
-                        labels={"rate": "Conversion Rate (%)", "stage": ""},
-                        color_discrete_map={"control": "#95A5A6", "treatment": "#2980B9"})
+    funnel_df = pd.DataFrame(funnel_rows)
+    fig_funnel = px.bar(funnel_df, x="Stage", y="Rate", color="Variant", barmode="group",
+                        color_discrete_map={"Control": PALETTE["gray"], "Treatment": PALETTE["blue"]},
+                        labels={"Rate": "Conversion Rate (%)"})
+    fig_funnel.update_layout(template="plotly_white", height=350, legend=dict(orientation="h", y=1.12))
     st.plotly_chart(fig_funnel, use_container_width=True)
 
-    # --- Primary metric: purchase rate ---
-    st.subheader("Primary Metric: Purchase Conversion Rate")
+    # ── Hypothesis test ──
+    st.markdown("### Statistical Test")
 
-    ctrl_purchases = control["completed_purchase"].sum()
-    treat_purchases = treatment["completed_purchase"].sum()
-    ctrl_rate = ctrl_purchases / len(control)
-    treat_rate = treat_purchases / len(treatment)
+    ctrl_conv = control["completed_purchase"].sum()
+    treat_conv = treatment["completed_purchase"].sum()
+    ctrl_rate = ctrl_conv / len(control)
+    treat_rate = treat_conv / len(treatment)
 
-    pooled_rate = (ctrl_purchases + treat_purchases) / len(df)
-    se = np.sqrt(pooled_rate * (1 - pooled_rate) * (1/len(control) + 1/len(treatment)))
-    z_stat = (treat_rate - ctrl_rate) / se
-    p_value = 2 * (1 - stats.norm.cdf(abs(z_stat)))
-
+    pooled = (ctrl_conv + treat_conv) / len(df)
+    se = np.sqrt(pooled * (1 - pooled) * (1/len(control) + 1/len(treatment)))
+    z = (treat_rate - ctrl_rate) / se
+    p_val = 2 * (1 - stats.norm.cdf(abs(z)))
     lift = (treat_rate - ctrl_rate) / ctrl_rate * 100
-
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Control Rate", f"{ctrl_rate:.2%}")
-    m2.metric("Treatment Rate", f"{treat_rate:.2%}")
-    m3.metric("Lift", f"{lift:+.1f}%")
-    m4.metric("P-value", f"{p_value:.4f}")
-
-    if p_value < 0.05:
-        st.success(f"Statistically significant at α=0.05 (z={z_stat:.3f}, p={p_value:.4f})")
-    else:
-        st.warning(f"Not statistically significant at α=0.05 (z={z_stat:.3f}, p={p_value:.4f})")
-
-    # --- Confidence interval ---
     ci_low = (treat_rate - ctrl_rate) - 1.96 * se
     ci_high = (treat_rate - ctrl_rate) + 1.96 * se
-    st.info(f"95% CI for difference: [{ci_low:.4f}, {ci_high:.4f}]")
 
-    # --- Segment analysis ---
-    st.subheader("Results by Device Type")
-    segments = []
-    for device in df["device_type"].unique():
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Control", f"{ctrl_rate:.2%}")
+    m2.metric("Treatment", f"{treat_rate:.2%}")
+    m3.metric("Relative Lift", f"{lift:+.1f}%")
+    m4.metric("P-value", f"{p_val:.4f}")
+
+    if p_val < 0.05 and lift > 0:
+        st.success(f"Statistically significant (z={z:.3f}, p={p_val:.4f}). The new checkout works.")
+    elif p_val < 0.05:
+        st.error(f"Significant but negative (z={z:.3f}). The new checkout is worse.")
+    else:
+        st.warning(f"Not significant (z={z:.3f}, p={p_val:.4f}). Can't conclusively say it's better.")
+
+    st.markdown(f"**95% CI** for absolute difference: `[{ci_low:.4f}, {ci_high:.4f}]`")
+
+    # ── Segment analysis ──
+    st.markdown("### Segment Breakdown")
+    st.caption("Does the effect hold across devices, or is it driven by one segment?")
+
+    seg_rows = []
+    for device in sorted(df["device_type"].unique()):
         for variant in ["control", "treatment"]:
             sub = df[(df["device_type"] == device) & (df["variant"] == variant)]
-            segments.append({
-                "device": device,
-                "variant": variant,
-                "conversion_rate": sub["completed_purchase"].mean() * 100,
-                "n": len(sub)
+            seg_rows.append({
+                "Device": device.title(), "Variant": variant.title(),
+                "Rate": sub["completed_purchase"].mean() * 100, "N": len(sub)
             })
 
-    seg_df = pd.DataFrame(segments)
-    fig_seg = px.bar(seg_df, x="device", y="conversion_rate", color="variant",
-                     barmode="group", title="Conversion Rate by Device",
-                     labels={"conversion_rate": "Conversion Rate (%)", "device": ""},
-                     color_discrete_map={"control": "#95A5A6", "treatment": "#2980B9"})
+    seg_df = pd.DataFrame(seg_rows)
+    fig_seg = px.bar(seg_df, x="Device", y="Rate", color="Variant", barmode="group",
+                     color_discrete_map={"Control": PALETTE["gray"], "Treatment": PALETTE["blue"]},
+                     labels={"Rate": "Conversion Rate (%)"}, text="N")
+    fig_seg.update_traces(texttemplate="n=%{text:,}", textposition="outside", textfont_size=10)
+    fig_seg.update_layout(template="plotly_white", height=400, legend=dict(orientation="h", y=1.12))
     st.plotly_chart(fig_seg, use_container_width=True)
 
-    # --- Revenue impact ---
-    st.subheader("Revenue Impact Estimate")
-    purchasers_ctrl = control[control["completed_purchase"] == 1]
-    purchasers_treat = treatment[treatment["completed_purchase"] == 1]
-    avg_order_ctrl = purchasers_ctrl["order_value"].mean() if len(purchasers_ctrl) > 0 else 0
-    avg_order_treat = purchasers_treat["order_value"].mean() if len(purchasers_treat) > 0 else 0
+    # ── Revenue impact ──
+    st.markdown("### Revenue Impact")
 
-    monthly_traffic = 100000  # assumed
+    buyers_ctrl = control[control["completed_purchase"] == 1]
+    buyers_treat = treatment[treatment["completed_purchase"] == 1]
+    aov_ctrl = buyers_ctrl["order_value"].mean() if len(buyers_ctrl) > 0 else 0
+    aov_treat = buyers_treat["order_value"].mean() if len(buyers_treat) > 0 else 0
+
+    monthly_traffic = 100_000
     extra_conversions = monthly_traffic * (treat_rate - ctrl_rate)
-    monthly_impact = extra_conversions * avg_order_treat
+    monthly_rev_impact = extra_conversions * aov_treat
+    annual_rev_impact = monthly_rev_impact * 12
 
-    r1, r2 = st.columns(2)
-    r1.metric("Avg Order Value (Control)", f"${avg_order_ctrl:.2f}")
-    r2.metric("Avg Order Value (Treatment)", f"${avg_order_treat:.2f}")
+    i1, i2, i3 = st.columns(3)
+    i1.metric("Extra Conversions / Month", f"{extra_conversions:,.0f}", help="At 100K monthly users")
+    i2.metric("Monthly Revenue Impact", f"${monthly_rev_impact:,.0f}")
+    i3.metric("Annualized Impact", f"${annual_rev_impact:,.0f}")
 
-    st.metric("Estimated Monthly Revenue Impact (at 100K users/mo)", f"${monthly_impact:,.0f}")
-
-    # --- Recommendation ---
-    st.subheader("Recommendation")
-    if p_value < 0.05 and lift > 0:
+    # ── Recommendation ──
+    st.markdown("### Recommendation")
+    if p_val < 0.05 and lift > 0:
         st.markdown(f"""
-        **Ship it.** The new checkout flow shows a **{lift:.1f}%** lift in conversion
-        with statistical significance (p={p_value:.4f}). Estimated monthly revenue
-        impact: **${monthly_impact:,.0f}** at 100K monthly users.
+        **Ship it.** {lift:.1f}% lift with p={p_val:.4f}. The revenue upside is
+        ~${annual_rev_impact:,.0f}/year at current traffic levels.
 
-        Suggested rollout: 10% → 25% → 50% → 100% over 2 weeks, monitoring for regressions.
+        **Rollout plan:** 10% for 2 days (watch for errors) → 50% for 3 days
+        (confirm lift holds) → 100%. Keep the old flow as a quick rollback option
+        for at least 2 weeks.
         """)
     else:
-        st.markdown("**Hold.** Results are not statistically significant. Consider extending the experiment or testing a different variant.")
+        st.markdown("""
+        **Don't ship yet.** The results aren't conclusive. Options:
+        - Extend the test another 1-2 weeks for more power
+        - Check if there's a segment where it clearly wins and consider a targeted rollout
+        - Iterate on the design and re-test
+        """)
 
 
-# ============================================================
+# ════════════════════════════════════════════════════════════════
 # AI ECOSYSTEM
-# ============================================================
-elif page == "AI Ecosystem":
-    st.title("AI & ML Ecosystem Analysis")
-    st.caption("Trends across 467 GitHub repos and 200 HuggingFace models")
+# ════════════════════════════════════════════════════════════════
+elif page == "AI & ML Ecosystem":
+    st.title("AI & ML Open Source Landscape")
+    st.caption("What's happening in the open-source ML world, based on GitHub and HuggingFace data")
 
-    repos = pd.read_csv("01_ai_ecosystem_analysis/data/github_ai_repos.csv")
-    models = pd.read_csv("01_ai_ecosystem_analysis/data/huggingface_models.csv")
+    repos = load_repos()
+    models = load_models()
 
     k1, k2, k3 = st.columns(3)
     k1.metric("GitHub Repos", f"{len(repos):,}")
     k2.metric("HuggingFace Models", f"{len(models):,}")
-    k3.metric("Total Stars", f"{repos['stars'].sum():,.0f}")
+    k3.metric("Combined Stars", f"{repos['stars'].sum()/1e6:.1f}M")
 
-    # --- Top repos by stars ---
-    top = repos.nlargest(15, "stars")
+    st.markdown("---")
+
+    # ── Top repos ──
+    top = repos.nlargest(20, "stars")
     fig_stars = px.bar(top, x="stars", y="repo_name", orientation="h",
-                       title="Top 15 Repos by Stars",
-                       labels={"stars": "Stars", "repo_name": ""},
-                       color_discrete_sequence=["#2C3E50"])
-    fig_stars.update_layout(yaxis=dict(autorange="reversed"))
+                       color="language", labels={"stars": "Stars", "repo_name": ""},
+                       hover_data=["forks", "open_issues"])
+    fig_stars.update_layout(title="Most Starred Repos", yaxis=dict(autorange="reversed"),
+                            template="plotly_white", height=500)
     st.plotly_chart(fig_stars, use_container_width=True)
 
-    # --- Language distribution ---
+    # ── Language + Tasks ──
     c1, c2 = st.columns(2)
     with c1:
-        lang = repos["language"].value_counts().head(10)
+        lang = repos["language"].value_counts().head(8)
         fig_lang = px.pie(values=lang.values, names=lang.index,
-                          title="Top Languages",
                           color_discrete_sequence=px.colors.qualitative.Set2)
         fig_lang.update_traces(textinfo="label+percent")
+        fig_lang.update_layout(title="Languages", template="plotly_white", height=350)
         st.plotly_chart(fig_lang, use_container_width=True)
 
     with c2:
         pipeline = models["pipeline_tag"].value_counts().head(10)
         fig_pipe = px.bar(x=pipeline.values, y=pipeline.index, orientation="h",
-                          title="Top Model Tasks (HuggingFace)",
-                          labels={"x": "Count", "y": ""},
+                          labels={"x": "Models", "y": ""},
                           color_discrete_sequence=["#8E44AD"])
+        fig_pipe.update_layout(title="What Models Are Built For", template="plotly_white",
+                               yaxis=dict(autorange="reversed"), height=350)
         st.plotly_chart(fig_pipe, use_container_width=True)
 
-    # --- Stars vs Forks scatter ---
-    fig_scatter = px.scatter(repos, x="stars", y="forks", hover_name="repo_name",
-                             color="language", size="open_issues",
-                             title="Stars vs Forks (sized by open issues)",
-                             labels={"stars": "Stars", "forks": "Forks"},
-                             log_x=True, log_y=True)
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    # ── Stars vs Forks ──
+    fig_sc = px.scatter(repos, x="stars", y="forks", hover_name="repo_name",
+                        color="language", size="open_issues", size_max=20,
+                        labels={"stars": "Stars", "forks": "Forks"},
+                        log_x=True, log_y=True)
+    fig_sc.update_layout(title="Stars vs Forks", template="plotly_white", height=450)
+    st.plotly_chart(fig_sc, use_container_width=True)
 
-    # --- HuggingFace downloads ---
-    top_models = models.nlargest(15, "downloads")
-    fig_dl = px.bar(top_models, x="downloads", y="model_id", orientation="h",
-                    title="Top 15 Models by Downloads",
+    # ── Top HF models ──
+    top_m = models.nlargest(15, "downloads")
+    fig_dl = px.bar(top_m, x="downloads", y="model_id", orientation="h",
                     labels={"downloads": "Downloads", "model_id": ""},
                     color_discrete_sequence=["#E67E22"])
-    fig_dl.update_layout(yaxis=dict(autorange="reversed"))
+    fig_dl.update_layout(title="Most Downloaded Models", yaxis=dict(autorange="reversed"),
+                         template="plotly_white", height=450)
     st.plotly_chart(fig_dl, use_container_width=True)
 
 
-# ============================================================
+# ════════════════════════════════════════════════════════════════
 # CO2 EMISSIONS
-# ============================================================
+# ════════════════════════════════════════════════════════════════
 elif page == "Global CO2 Emissions":
-    st.title("Global CO2 Emissions Analysis")
-    st.caption("Historical trends from Our World in Data")
+    st.title("Global CO2 Emissions")
+    st.caption("Historical trends from Our World in Data — who emits the most, and how that's changing")
 
-    co2 = pd.read_csv("02_global_co2_analysis/data/owid_co2_data.csv")
-    co2 = co2[co2["iso_code"].notna() & (co2["iso_code"] != "")]
+    co2 = load_co2()
+
+    latest_year = int(co2["year"].max())
+    latest = co2[co2["year"] == latest_year]
 
     k1, k2, k3 = st.columns(3)
     k1.metric("Countries", f"{co2['country'].nunique()}")
-    k2.metric("Year Range", f"{co2['year'].min()} - {co2['year'].max()}")
-    k3.metric("Data Points", f"{len(co2):,}")
+    k2.metric("Latest Year", f"{latest_year}")
+    k3.metric("Total Emissions", f"{latest['co2'].sum():,.0f} Mt")
 
-    # --- Top emitters ---
-    latest = co2[co2["year"] == co2["year"].max()]
-    top_emitters = latest.nlargest(10, "co2")
+    st.markdown("---")
 
-    fig_top = px.bar(top_emitters, x="country", y="co2",
-                     title=f"Top 10 CO2 Emitters ({co2['year'].max()})",
+    # ── Top emitters ──
+    top_em = latest.nlargest(10, "co2")
+    fig_top = px.bar(top_em, x="country", y="co2",
                      labels={"co2": "CO2 (Mt)", "country": ""},
-                     color_discrete_sequence=["#E74C3C"])
+                     color_discrete_sequence=[PALETTE["accent"]])
+    fig_top.update_layout(title=f"Top 10 Emitters ({latest_year})", template="plotly_white", height=350)
     st.plotly_chart(fig_top, use_container_width=True)
 
-    # --- Per capita comparison ---
-    st.subheader("Per Capita Emissions")
-    countries_select = st.multiselect("Select countries to compare",
-                                       co2["country"].unique().tolist(),
-                                       default=["United States", "China", "India", "Germany", "Brazil"])
+    # ── Per capita over time ──
+    st.markdown("### Per Capita Trends")
+    default_countries = ["United States", "China", "India", "Germany", "Brazil"]
+    available_defaults = [c for c in default_countries if c in co2["country"].unique()]
 
-    if countries_select:
-        filtered = co2[co2["country"].isin(countries_select)]
-        fig_pc = px.line(filtered, x="year", y="co2_per_capita", color="country",
-                         title="CO2 Per Capita Over Time",
+    selected = st.multiselect("Compare countries", sorted(co2["country"].unique()),
+                               default=available_defaults)
+
+    if selected:
+        filt = co2[co2["country"].isin(selected)]
+        fig_pc = px.line(filt, x="year", y="co2_per_capita", color="country",
                          labels={"co2_per_capita": "CO2 per capita (t)", "year": ""})
+        fig_pc.update_layout(template="plotly_white", height=400,
+                             legend=dict(orientation="h", y=-0.15))
         st.plotly_chart(fig_pc, use_container_width=True)
 
-    # --- Emission sources ---
+    # ── Sources breakdown ──
     c1, c2 = st.columns(2)
     with c1:
-        source_cols = ["coal_co2", "oil_co2", "gas_co2", "cement_co2"]
-        available = [c for c in source_cols if c in latest.columns]
-        if available:
-            global_sources = latest[available].sum()
-            fig_src = px.pie(values=global_sources.values,
-                             names=[s.replace("_co2", "").title() for s in global_sources.index],
-                             title="Emissions by Source (Latest Year)",
-                             color_discrete_sequence=px.colors.qualitative.Set1)
-            fig_src.update_traces(textinfo="label+percent")
-            st.plotly_chart(fig_src, use_container_width=True)
+        sources = {col.replace("_co2", "").title(): latest[col].sum()
+                   for col in ["coal_co2", "oil_co2", "gas_co2", "cement_co2"]
+                   if col in latest.columns and latest[col].sum() > 0}
+        fig_src = px.pie(values=list(sources.values()), names=list(sources.keys()),
+                         color_discrete_sequence=px.colors.qualitative.Set1)
+        fig_src.update_traces(textinfo="label+percent")
+        fig_src.update_layout(title=f"Emission Sources ({latest_year})", template="plotly_white", height=350)
+        st.plotly_chart(fig_src, use_container_width=True)
 
     with c2:
         top_pc = latest.nlargest(10, "co2_per_capita")
         fig_tpc = px.bar(top_pc, x="country", y="co2_per_capita",
-                         title="Highest Per Capita Emissions",
-                         labels={"co2_per_capita": "CO2 per capita (t)", "country": ""},
-                         color_discrete_sequence=["#F39C12"])
+                         labels={"co2_per_capita": "t CO2/person", "country": ""},
+                         color_discrete_sequence=[PALETTE["orange"]])
+        fig_tpc.update_layout(title="Highest Per Capita", template="plotly_white", height=350)
         st.plotly_chart(fig_tpc, use_container_width=True)
 
 
-# ============================================================
-# CRYPTO MARKET
-# ============================================================
+# ════════════════════════════════════════════════════════════════
+# CRYPTO
+# ════════════════════════════════════════════════════════════════
 elif page == "Crypto Market":
-    st.title("Cryptocurrency Market Analysis")
-    st.caption("Market data for 250 cryptocurrencies from CoinGecko")
+    st.title("Crypto Market Overview")
+    st.caption("Snapshot of 250 cryptocurrencies from CoinGecko")
 
-    crypto = pd.read_csv("03_crypto_market_analysis/data/crypto_market.csv")
+    crypto = load_crypto()
 
     total_mcap = crypto["market_cap"].sum()
     k1, k2, k3 = st.columns(3)
-    k1.metric("Coins Tracked", f"{len(crypto):,}")
+    k1.metric("Coins", f"{len(crypto)}")
     k2.metric("Total Market Cap", f"${total_mcap/1e12:.2f}T")
     k3.metric("24h Volume", f"${crypto['total_volume'].sum()/1e9:.1f}B")
 
-    # --- Market dominance ---
+    st.markdown("---")
+
+    # ── Dominance ──
     top10 = crypto.nlargest(10, "market_cap")
-    fig_dom = px.pie(top10, values="market_cap", names="name",
-                     title="Market Cap Dominance (Top 10)",
+    other_mcap = total_mcap - top10["market_cap"].sum()
+    dom_df = pd.DataFrame({
+        "name": list(top10["name"]) + ["Others"],
+        "market_cap": list(top10["market_cap"]) + [other_mcap]
+    })
+    fig_dom = px.pie(dom_df, values="market_cap", names="name",
                      color_discrete_sequence=px.colors.qualitative.Bold)
     fig_dom.update_traces(textinfo="label+percent")
+    fig_dom.update_layout(title="Market Dominance", template="plotly_white", height=400)
     st.plotly_chart(fig_dom, use_container_width=True)
 
-    # --- Price vs Market Cap ---
-    fig_scatter = px.scatter(crypto[crypto["market_cap"] > 1e8],
-                             x="market_cap", y="current_price",
-                             hover_name="name", size="total_volume",
-                             title="Price vs Market Cap (coins > $100M mcap)",
-                             labels={"market_cap": "Market Cap ($)", "current_price": "Price ($)"},
-                             log_x=True, log_y=True,
-                             color_discrete_sequence=["#F39C12"])
-    st.plotly_chart(fig_scatter, use_container_width=True)
-
-    # --- 24h price changes ---
+    # ── Movers ──
     c1, c2 = st.columns(2)
     with c1:
         gainers = crypto.nlargest(10, "price_change_pct_24h")
-        fig_gain = px.bar(gainers, x="price_change_pct_24h", y="name", orientation="h",
-                          title="Top 10 Gainers (24h)",
-                          labels={"price_change_pct_24h": "Change (%)", "name": ""},
-                          color_discrete_sequence=["#27AE60"])
-        fig_gain.update_layout(yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig_gain, use_container_width=True)
+        fig_g = px.bar(gainers, x="price_change_pct_24h", y="name", orientation="h",
+                       labels={"price_change_pct_24h": "24h Change (%)", "name": ""},
+                       color_discrete_sequence=[PALETTE["green"]])
+        fig_g.update_layout(title="Top Gainers", yaxis=dict(autorange="reversed"),
+                            template="plotly_white", height=350)
+        st.plotly_chart(fig_g, use_container_width=True)
 
     with c2:
         losers = crypto.nsmallest(10, "price_change_pct_24h")
-        fig_lose = px.bar(losers, x="price_change_pct_24h", y="name", orientation="h",
-                          title="Top 10 Losers (24h)",
-                          labels={"price_change_pct_24h": "Change (%)", "name": ""},
-                          color_discrete_sequence=["#E74C3C"])
-        fig_lose.update_layout(yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig_lose, use_container_width=True)
+        fig_l = px.bar(losers, x="price_change_pct_24h", y="name", orientation="h",
+                       labels={"price_change_pct_24h": "24h Change (%)", "name": ""},
+                       color_discrete_sequence=[PALETTE["accent"]])
+        fig_l.update_layout(title="Top Losers", yaxis=dict(autorange="reversed"),
+                            template="plotly_white", height=350)
+        st.plotly_chart(fig_l, use_container_width=True)
 
-    # --- ATH distance ---
-    crypto["ath_distance"] = crypto["ath_change_pct"]
-    ath_data = crypto.nlargest(15, "market_cap")[["name", "current_price", "ath", "ath_distance"]]
-    fig_ath = px.bar(ath_data, x="name", y="ath_distance",
-                     title="Distance from All-Time High (Top 15 by Market Cap)",
-                     labels={"ath_distance": "% from ATH", "name": ""},
-                     color_discrete_sequence=["#8E44AD"])
+    # ── Price vs Market Cap ──
+    big_coins = crypto[crypto["market_cap"] > 1e8].copy()
+    fig_sc = px.scatter(big_coins, x="market_cap", y="current_price",
+                        hover_name="name", size="total_volume", size_max=25,
+                        labels={"market_cap": "Market Cap ($)", "current_price": "Price ($)"},
+                        log_x=True, log_y=True, color_discrete_sequence=[PALETTE["orange"]])
+    fig_sc.update_layout(title="Price vs Market Cap (>$100M)", template="plotly_white", height=400)
+    st.plotly_chart(fig_sc, use_container_width=True)
+
+    # ── ATH distance ──
+    ath = crypto.nlargest(15, "market_cap")[["name", "current_price", "ath", "ath_change_pct"]].copy()
+    fig_ath = px.bar(ath, x="name", y="ath_change_pct",
+                     labels={"ath_change_pct": "% from ATH", "name": ""},
+                     color_discrete_sequence=["#8E44AD"],
+                     hover_data={"current_price": ":$.2f", "ath": ":$.2f"})
+    fig_ath.update_layout(title="Distance from All-Time High (Top 15)", template="plotly_white", height=350)
     st.plotly_chart(fig_ath, use_container_width=True)
-
-
-# --- footer ---
-st.markdown("---")
-st.markdown("Built by Dheeraj Bhaskaruni · [GitHub](https://github.com/dheeraj-bhaskaruni)")
