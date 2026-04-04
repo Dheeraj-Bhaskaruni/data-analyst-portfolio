@@ -1,3 +1,13 @@
+---
+title: Data Analyst Portfolio
+emoji: 📊
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_file: app.py
+pinned: false
+---
+
 # Data Analyst Portfolio
 
 Real-world data analysis projects demonstrating **production-level** analytical skills with live API data and business-grade deliverables.
