@@ -10,3 +10,6 @@ requests>=2.31
 openpyxl>=3.1
 streamlit>=1.30
 plotly>=5.18
+shap>=0.43
+xgboost>=2.0
+lightgbm>=4.0
