@@ -2,6 +2,8 @@
 
 Real-world data analysis projects demonstrating **production-level** analytical skills with live API data and business-grade deliverables.
 
+**[Live Demo on Hugging Face Spaces](https://huggingface.co/spaces/dheeraj-bhaskaruni/data-analyst-portfolio)** — interactive Streamlit dashboard
+
 ## Projects
 
 ### Business Analytics (Production-Grade)
@@ -24,7 +26,7 @@ Real-world data analysis projects demonstrating **production-level** analytical 
 - **Languages:** Python 3.11+, SQL
 - **Data Collection:** REST APIs (GitHub, HuggingFace, CoinGecko), OWID
 - **Data Processing:** pandas, numpy, SQLite
-- **Visualization:** matplotlib, seaborn
+- **Visualization:** matplotlib, seaborn, plotly, streamlit
 - **Statistics:** scipy, statsmodels
 - **ML:** scikit-learn
 - **Environment:** Jupyter Notebooks
