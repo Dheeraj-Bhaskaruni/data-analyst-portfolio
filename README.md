@@ -2,7 +2,7 @@
 
 Real-world data analysis projects demonstrating **production-level** analytical skills with live API data and business-grade deliverables.
 
-**[Live Demo on Hugging Face Spaces](https://huggingface.co/spaces/dheeraj-bhaskaruni/data-analyst-portfolio)** — interactive Streamlit dashboard
+**[Live Demo on Hugging Face Spaces](https://huggingface.co/spaces/Dheeraj-13/data-analyst-portfolio)** — interactive Streamlit dashboard
 
 ## Projects
 
